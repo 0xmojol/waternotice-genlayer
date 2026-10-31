@@ -1,24 +1,20 @@
 # WaterNotice
 
-WaterNotice is a standalone GenLayer Intelligent Contract prototype that interprets one official municipal drinking-water notice for a specified street or address.
+WaterNotice is a GenLayer Intelligent Contract prototype for interpreting one official City of Portage, Michigan water-notice page against a target street or address.
 
-For the submitted notice page, it records whether the page explicitly describes an active boil-water advisory, says that an advisory was lifted, names another area, or does not provide enough evidence.
+It records an interpretation of the submitted page. It is not a live water-safety oracle and does not certify that water is safe or unsafe.
 
 ## Why GenLayer
 
-Notice pages use natural language, and an address may need to be matched against a named street or an explicit address range. The leader and validators independently read the selected page and classify the notice and target-area relationship.
+A public notice may express its status in natural language, and a target address may fall within an explicit street or address range. The contract fetches the submitted official page, asks GenLayer to classify the notice and target-area relationship, validates the structured result and evidence quote, then stores the agreed assessment.
 
-The validator checks the leader's structured decision against its own classification and verifies that the leader's evidence quote appears in its independently retrieved page. Contract state changes only after the consensus call returns.
+## Contract interface
 
-## Contract methods
-
-- `assess_notice(source_url, target_area)` assesses one notice page and stores the latest result.
+- `assess_notice(source_url, target_area)` reads one page on the official `portagemi.gov` domain and stores the latest structured assessment.
 - `get_latest_record()` returns the latest assessment as JSON text.
-- `get_assessment_count()` returns the number of assessments recorded.
+- `get_assessment_count()` returns the number of assessment writes.
 
-The contract accepts HTTPS URLs under `portagemi.gov` only. It stores the latest result and a monotonically increasing count, not an unbounded history.
-
-## Decision values
+Possible decisions:
 
 - `ACTIVE_NOTICE_FOR_AREA`
 - `LIFTED_NOTICE_FOR_AREA`
@@ -26,29 +22,37 @@ The contract accepts HTTPS URLs under `portagemi.gov` only. It stores the latest
 - `NOT_A_WATER_ADVISORY`
 - `UNRESOLVED`
 
-## Important limitation
+The contract stores only the latest record and a monotonically increasing count. It does not maintain an unbounded history.
 
-`ACTIVE_NOTICE_FOR_AREA` means the submitted page was interpreted as describing an active notice for the target area. It does not prove the notice is still current. `LIFTED_NOTICE_FOR_AREA` means the submitted page explicitly says the advisory was lifted.
+## Safety and source limitations
 
-`UNRESOLVED` does not mean water is safe or unsafe. This contract does not certify water quality and does not replace official public-health guidance. Its result is limited to the page and area submitted for assessment.
+`ACTIVE_NOTICE_FOR_AREA` means that the specific submitted page was interpreted as an active notice for the target area. It does not prove that the notice is still current. `LIFTED_NOTICE_FOR_AREA` means that the submitted page explicitly says the advisory was lifted. `UNRESOLVED` is not a safe/unsafe finding. No result certifies water quality or replaces official public-health guidance.
 
-## Example pages for Studio testing
+The source URL is restricted to HTTPS pages under `portagemi.gov`. This checks the hostname only; it does not cryptographically authenticate the author or prove that the page is current. The assessment is only as reliable as the selected source and the content available to GenLayer's web renderer.
 
-These historical City of Portage pages are useful for testing both notice classifications. They do not describe current water conditions.
+## Studio validation
 
-- Active-notice page: `https://www.portagemi.gov/m/newsflash/Archive/Item/1500?arcId=2681`
-- Lifted-notice page: `https://www.portagemi.gov/m/newsflash/Archive/Item/1511?arcId=2699`
-- Target area for both: `5427 Meredith Street`
+The contract was deployed and upgraded on Studionet at:
 
-Expected decisions are `ACTIVE_NOTICE_FOR_AREA` and `LIFTED_NOTICE_FOR_AREA`, respectively, if live retrieval and validator consensus succeed.
+- Contract: [`0x110E0Eb800c0C2155cF9BA6E9B5b38e4910c8A75`](https://explorer-studio.genlayer.com/address/0x110E0Eb800c0C2155cF9BA6E9B5b38e4910c8A75)
+- Deployment transaction: [`0xdb096cd0df671587e35b89b33f65bafe79bae3e296ef10a95a3de2f35dfad0cc`](https://explorer-studio.genlayer.com/tx/0xdb096cd0df671587e35b89b33f65bafe79bae3e296ef10a95a3de2f35dfad0cc)
+- JSON-response handling upgrade: [`0x944a3fc767e2b370183d4f6e66a9e90afe32f9b14029142aa89a3f1dec628df1`](https://explorer-studio.genlayer.com/tx/0x944a3fc767e2b370183d4f6e66a9e90afe32f9b14029142aa89a3f1dec628df1)
+
+Observed Studio checks on October 31, 2026:
+
+- A call using the official general News Flash RSS feed returned `NOT_A_WATER_ADVISORY` with an excerpt about a Portage Road gas-main replacement. This classifies that returned news item only; it does not prove that no water advisory exists elsewhere or certify water safety.
+- Calls using two older Meredith Street archive pages returned `UNRESOLVED`. GenLayer's rendered page content included unrelated related-news content or a `Loading` placeholder instead of readable notice text. These calls do not validate the active or lifted outcomes.
+- The assessment counter and latest-record view methods returned the persisted state successfully.
+
+The archive URLs below are historical examples, not current water-status sources. Their page bodies may be image-based or dynamically loaded, so Studio may correctly return `UNRESOLVED` when it cannot access clear notice evidence.
 
 ## Local checks
 
-Run these commands from the project root:
+Run the mock-interface regression suite from the project root:
 
 ```bash
 python -m unittest discover -s tests -v
 python -m py_compile contracts/water_notice.py
 ```
 
-The tests use a mock GenLayer interface. They are local regression tests, not GenVM or Studio validation. The contract must still be tested with full consensus in Studio before describing it as live-validated.
+The five unit tests exercise the contract method using a fake GenLayer interface. They are useful regression checks, but they are not GenVM or Studio validation and do not prove live active/lifted classification.
