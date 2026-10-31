@@ -102,6 +102,7 @@ class ContractTests(unittest.TestCase):
     def load_contract(self, pages):
         gl = types.SimpleNamespace(
             Contract=object,
+            u256=int,
             public=FakePublic(),
             nondet=types.SimpleNamespace(
                 web=FakeRuntime(pages),
@@ -112,7 +113,8 @@ class ContractTests(unittest.TestCase):
 
         fake_module = types.ModuleType("genlayer")
         fake_module.gl = gl
-        fake_module.__all__ = ["gl"]
+        fake_module.u256 = int
+        fake_module.__all__ = ["gl", "u256"]
 
         original = sys.modules.get("genlayer")
         sys.modules["genlayer"] = fake_module
