@@ -5,11 +5,11 @@ from genlayer import *
 
 
 class WaterNotice(gl.Contract):
-    assessment_count: int
+    assessment_count: u256
     latest_record: str
 
     def __init__(self):
-        self.assessment_count = 0
+        self.assessment_count = u256(0)
         self.latest_record = ""
 
     @gl.public.write
@@ -66,7 +66,6 @@ Rules:
                 kind = str(parsed.get("notice_kind", "UNCLEAR")).upper()
                 match = str(parsed.get("area_match", "UNCLEAR")).upper()
                 quote = str(parsed.get("evidence_quote", ""))[:240]
-
                 if kind not in ("ACTIVE", "LIFTED", "OTHER", "UNCLEAR"):
                     kind = "UNCLEAR"
                 if match not in ("MATCH", "NO_MATCH", "UNCLEAR"):
@@ -77,7 +76,6 @@ Rules:
                         "area_match": "UNCLEAR",
                         "evidence_quote": "",
                     }, page_text
-
                 return {
                     "notice_kind": kind,
                     "area_match": match,
@@ -97,22 +95,17 @@ Rules:
         def validator_fn(leader_result) -> bool:
             if not isinstance(leader_result, gl.vm.Return):
                 return False
-
             leader_data = leader_result.calldata
             if not isinstance(leader_data, dict):
                 return False
-
             own_data, own_page = fetch_and_classify()
-
             if leader_data.get("notice_kind") != own_data.get("notice_kind"):
                 return False
             if leader_data.get("area_match") != own_data.get("area_match"):
                 return False
-
             leader_quote = str(leader_data.get("evidence_quote", ""))
             if leader_quote:
                 return bool(own_page) and normalize(leader_quote) in normalize(own_page)
-
             return (
                 leader_data.get("notice_kind") == "UNCLEAR"
                 and leader_data.get("area_match") == "UNCLEAR"
@@ -120,7 +113,6 @@ Rules:
             )
 
         agreed = gl.vm.run_nondet_unsafe(leader_fn, validator_fn)
-
         notice_kind = str(agreed.get("notice_kind", "UNCLEAR"))
         area_match = str(agreed.get("area_match", "UNCLEAR"))
         evidence_quote = str(agreed.get("evidence_quote", ""))
@@ -162,5 +154,5 @@ Rules:
         return self.latest_record
 
     @gl.public.view
-    def get_assessment_count(self) -> int:
+    def get_assessment_count(self) -> u256:
         return self.assessment_count
